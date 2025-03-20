@@ -10,6 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import Candidates from "./pages/Candidates";
 import CandidateProfile from "./pages/CandidateProfile";
 import Interviews from "./pages/Interviews";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +28,9 @@ const AnimatedRoutes = () => {
         <Route path="/candidates" element={<Candidates />} />
         <Route path="/candidates/:id" element={<CandidateProfile />} />
         <Route path="/interviews" element={<Interviews />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

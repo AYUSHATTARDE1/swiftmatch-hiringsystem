@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, PolarRadiusAxis } from 'recharts';
 
 interface SkillRating {
   skill: string;
@@ -24,6 +24,12 @@ const SkillsChart: React.FC<SkillsChartProps> = ({ data, className }) => {
             tick={{ fill: '#64748b', fontSize: 12 }} 
             style={{ fontSize: '12px' }}
           />
+          <PolarRadiusAxis 
+            angle={30} 
+            domain={[0, 100]} 
+            tick={false} 
+            axisLine={false}
+          />
           <Radar
             name="Skills"
             dataKey="rating"
@@ -31,6 +37,7 @@ const SkillsChart: React.FC<SkillsChartProps> = ({ data, className }) => {
             fill="hsl(var(--primary))"
             fillOpacity={0.3}
             animationDuration={1000}
+            animationEasing="ease-in-out"
           />
         </RadarChart>
       </ResponsiveContainer>
