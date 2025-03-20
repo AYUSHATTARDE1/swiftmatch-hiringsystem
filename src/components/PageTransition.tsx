@@ -9,12 +9,12 @@ interface PageTransitionProps {
 const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -5 }}
       transition={{
         type: "tween",
-        duration: 0.3,
+        duration: 0.25,
         ease: "easeInOut"
       }}
       className="min-h-screen pb-12 pt-24"

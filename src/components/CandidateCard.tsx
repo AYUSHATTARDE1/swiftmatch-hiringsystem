@@ -46,7 +46,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
   return (
     <div 
       className={cn(
-        "glass-card hover-card-animation",
+        "bg-white border border-border/40 rounded-xl shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1",
         compact ? "p-4" : "p-6",
         className
       )}
@@ -106,12 +106,12 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
             <div className="mt-4">
               <div className="flex flex-wrap gap-1.5">
                 {skills.slice(0, 4).map((skill) => (
-                  <Badge key={skill} variant="secondary" className="font-normal">
+                  <Badge key={skill} variant="secondary" className="font-normal text-xs">
                     {skill}
                   </Badge>
                 ))}
                 {skills.length > 4 && (
-                  <Badge variant="outline" className="font-normal">
+                  <Badge variant="outline" className="font-normal text-xs">
                     +{skills.length - 4} more
                   </Badge>
                 )}
