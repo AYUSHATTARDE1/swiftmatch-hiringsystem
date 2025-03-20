@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Video, Mic, MicOff, VideoOff, PhoneOff, MessageSquare, Users, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -135,7 +134,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ isOpen, onClose, participantName 
       setTimeout(() => {
         const reply = {
           sender: participantName,
-          text: 'Thanks for your message. I'm looking forward to discussing more about the position.',
+          text: "Thanks for your message. I'm looking forward to discussing more about the position.",
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setMessages(prev => [...prev, reply]);
