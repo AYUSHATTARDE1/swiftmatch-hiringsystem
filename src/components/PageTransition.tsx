@@ -13,9 +13,9 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{
-        type: "tween",
-        duration: 0.3,
-        ease: "easeInOut"
+        type: "spring",
+        stiffness: 50,
+        damping: 20
       }}
       className="min-h-screen"
     >
