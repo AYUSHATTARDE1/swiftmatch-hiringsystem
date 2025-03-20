@@ -15,34 +15,50 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/
 import { cn } from '@/lib/utils';
 import PageTransition from '@/components/PageTransition';
 import { useForm } from 'react-hook-form';
+import { useUser } from '@/contexts/UserContext';
 
 const Signup = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signup } = useUser();
   
   const form = useForm({
     defaultValues: {
       name: '',
       email: '',
       password: '',
-      accountType: 'candidate',
+      accountType: 'candidate' as 'candidate' | 'company',
     },
   });
 
   const handleSignup = async (values: any) => {
     setLoading(true);
     
-    // Simulate signup - replace with actual authentication
-    setTimeout(() => {
-      console.log('Signup values:', values);
+    try {
+      await signup(
+        values.email,
+        values.password,
+        values.name,
+        values.accountType === 'employer' ? 'company' : 'candidate'
+      );
+      
+      // Redirect based on account type
+      if (values.accountType === 'employer') {
+        navigate('/company/dashboard');
+      } else {
+        navigate('/candidate/dashboard');
+      }
+    } catch (error) {
+      console.error(error);
       toast({
-        title: "Success",
-        description: "Your account has been created. Welcome!",
+        title: "Signup failed",
+        description: "There was a problem creating your account. Please try again.",
+        variant: "destructive"
       });
-      navigate('/dashboard');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (

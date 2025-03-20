@@ -2,14 +2,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useUser } from '@/contexts/UserContext';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const { isAuthenticated, user, userType, logout } = useUser();
   
   // Track scroll position for navbar transparency
   useEffect(() => {
@@ -23,12 +34,31 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navItems = [
+  let navItems = [
     { name: 'Dashboard', path: '/dashboard' },
-    { name: 'Candidates', path: '/candidates' },
-    { name: 'Interviews', path: '/interviews' },
-    { name: 'How It Works', path: '/#how-it-works' },
   ];
+  
+  if (isAuthenticated) {
+    if (userType === 'company') {
+      navItems = [
+        { name: 'Dashboard', path: '/company/dashboard' },
+        { name: 'Candidates', path: '/candidates' },
+        { name: 'Interviews', path: '/interviews' },
+      ];
+    } else {
+      navItems = [
+        { name: 'Dashboard', path: '/candidate/dashboard' },
+        { name: 'My Interviews', path: '/my-interviews' },
+        { name: 'Job Search', path: '/job-search' },
+      ];
+    }
+  } else {
+    navItems = [
+      { name: 'Dashboard', path: '/dashboard' },
+      { name: 'How It Works', path: '/#how-it-works' },
+      { name: 'Pricing', path: '/#pricing' },
+    ];
+  }
 
   return (
     <header
@@ -50,7 +80,7 @@ const Navbar = () => {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-medium">
                 SM
               </div>
-              <span className="text-lg font-medium tracking-tight">SwiftMatch</span>
+              <span className="text-lg font-medium tracking-tight">Intervue</span>
             </Link>
           </div>
           
@@ -90,12 +120,49 @@ const Navbar = () => {
           
           {/* Right side buttons */}
           <div className="hidden md:flex items-center justify-end md:flex-1 lg:w-0 space-x-4">
-            <Button variant="ghost" asChild>
-              <Link to="/login">Sign in</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/signup">Get started</Link>
-            </Button>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.profilePicture} alt={user?.name} />
+                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/my-profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>My Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/login">Sign in</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/signup">Get started</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -122,12 +189,36 @@ const Navbar = () => {
               ))}
             </div>
             <div className="pt-4 space-y-3">
-              <Button variant="ghost" asChild className="w-full justify-center">
-                <Link to="/login">Sign in</Link>
-              </Button>
-              <Button asChild className="w-full justify-center">
-                <Link to="/signup">Get started</Link>
-              </Button>
+              {isAuthenticated ? (
+                <>
+                  <Button variant="outline" asChild className="w-full justify-center">
+                    <Link to="/my-profile" onClick={() => setIsMobileMenuOpen(false)}>
+                      <User className="mr-2 h-4 w-4" />
+                      My Profile
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    className="w-full justify-center"
+                    onClick={() => {
+                      logout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" asChild className="w-full justify-center">
+                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign in</Link>
+                  </Button>
+                  <Button asChild className="w-full justify-center">
+                    <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)}>Get started</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

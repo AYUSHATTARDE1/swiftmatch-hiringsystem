@@ -13,6 +13,7 @@ import Candidates from "./pages/Candidates";
 import CandidateProfile from "./pages/CandidateProfile";
 import Interviews from "./pages/Interviews";
 import MyInterviews from "./pages/MyInterviews";
+import UserProfile from "./pages/UserProfile";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -75,6 +76,13 @@ const AnimatedRoutes = () => {
               ? <Navigate to="/company/dashboard" replace /> 
               : <Navigate to="/candidate/dashboard" replace />
             }
+          </ProtectedRoute>
+        } />
+        
+        {/* User profile route */}
+        <Route path="/my-profile" element={
+          <ProtectedRoute>
+            <UserProfile />
           </ProtectedRoute>
         } />
         
