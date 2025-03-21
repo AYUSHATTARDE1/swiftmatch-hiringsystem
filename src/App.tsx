@@ -18,6 +18,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
+import JobSearch from "./pages/JobSearch";
+import JobDetails from "./pages/JobDetails";
+import ApplyJob from "./pages/ApplyJob";
 import { UserProvider, useUser } from "./contexts/UserContext";
 
 const queryClient = new QueryClient();
@@ -68,6 +71,8 @@ const AnimatedRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/job-search" element={<JobSearch />} />
+        <Route path="/jobs/:id" element={<JobDetails />} />
         
         {/* Generic dashboard redirect based on user type */}
         <Route path="/dashboard" element={
@@ -83,6 +88,13 @@ const AnimatedRoutes = () => {
         <Route path="/my-profile" element={
           <ProtectedRoute>
             <UserProfile />
+          </ProtectedRoute>
+        } />
+        
+        {/* Application route - needs auth */}
+        <Route path="/apply/:id" element={
+          <ProtectedRoute>
+            <ApplyJob />
           </ProtectedRoute>
         } />
         

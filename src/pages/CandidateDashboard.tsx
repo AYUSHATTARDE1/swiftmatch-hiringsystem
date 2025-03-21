@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Calendar, 
   Briefcase, 
@@ -31,48 +31,65 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import VideoCall from '@/components/VideoCall';
 import Navbar from '@/components/Navbar';
 import PageTransition from '@/components/PageTransition';
 import { useUser } from '@/contexts/UserContext';
+import { getApplications, getInterviews, getJobs } from '@/services/api';
 
 const CandidateDashboard = () => {
   const { user } = useUser();
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [currentInterview, setCurrentInterview] = useState<string>('');
   
+  const { data: applications, isLoading: loadingApplications } = useQuery({
+    queryKey: ['candidate-applications'],
+    queryFn: () => getApplications({ candidate_id: user?.id }),
+    enabled: !!user?.id,
+  });
+  
+  const { data: interviews, isLoading: loadingInterviews } = useQuery({
+    queryKey: ['candidate-interviews'],
+    queryFn: async () => {
+      const apps = await getApplications({ candidate_id: user?.id });
+      
+      const allInterviews = [];
+      for (const app of apps) {
+        const interviewsForApp = await getInterviews({ application_id: app.id });
+        allInterviews.push(...interviewsForApp);
+      }
+      
+      return allInterviews;
+    },
+    enabled: !!user?.id,
+  });
+  
+  const { data: recommendedJobs, isLoading: loadingJobs } = useQuery({
+    queryKey: ['recommended-jobs'],
+    queryFn: () => getJobs({ status: 'active', limit: 3 }),
+    enabled: !!user?.id,
+  });
+  
   const startVideoCall = (companyName: string) => {
     setCurrentInterview(companyName);
     setIsVideoCallOpen(true);
   };
-
-  const upcomingInterviews = [
-    { 
-      company: 'Acme Corporation', 
-      role: 'Senior React Developer', 
-      date: 'Today', 
-      time: '3:00 PM', 
-      duration: '45 min', 
-      status: 'Ready to join'
-    },
-    { 
-      company: 'TechFlow, Inc', 
-      role: 'Frontend Engineer', 
-      date: 'Tomorrow', 
-      time: '11:30 AM', 
-      duration: '30 min', 
-      status: 'Upcoming'
-    },
-    { 
-      company: 'InnovateSoft', 
-      role: 'UI/UX Developer', 
-      date: 'May 18, 2023', 
-      time: '2:00 PM', 
-      duration: '60 min', 
-      status: 'Upcoming'
-    }
-  ];
   
+  const calculateProfileCompleteness = () => {
+    if (!user) return 0;
+    
+    let points = 0;
+    let total = 5;
+    
+    if (user.profilePicture) points++;
+    if (user.name && user.name.trim() !== '') points++;
+    
+    return Math.floor((points / total) * 100);
+  };
+  
+  const profileCompleteness = calculateProfileCompleteness();
+
   return (
     <PageTransition>
       <Navbar />
@@ -103,11 +120,17 @@ const CandidateDashboard = () => {
                 <CardTitle className="text-sm font-medium">Applications</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-500 font-medium">+3</span> this week
-                </p>
-                <Progress value={75} className="h-1 mt-3" />
+                {loadingApplications ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{applications?.length || 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your job applications
+                    </p>
+                    <Progress value={applications?.length ? 75 : 0} className="h-1 mt-3" />
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -122,11 +145,17 @@ const CandidateDashboard = () => {
                 <CardTitle className="text-sm font-medium">Interviews</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-500 font-medium">+1</span> scheduled this week
-                </p>
-                <Progress value={60} className="h-1 mt-3" />
+                {loadingInterviews ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{interviews?.length || 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Scheduled interviews
+                    </p>
+                    <Progress value={interviews?.length ? 60 : 0} className="h-1 mt-3" />
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -141,11 +170,11 @@ const CandidateDashboard = () => {
                 <CardTitle className="text-sm font-medium">Profile Views</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">47</div>
+                <div className="text-2xl font-bold">-</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-500 font-medium">+15%</span> from last month
+                  Coming soon
                 </p>
-                <Progress value={80} className="h-1 mt-3" />
+                <Progress value={0} className="h-1 mt-3" />
               </CardContent>
             </Card>
           </motion.div>
@@ -160,11 +189,11 @@ const CandidateDashboard = () => {
                 <CardTitle className="text-sm font-medium">Profile Completeness</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">85%</div>
+                <div className="text-2xl font-bold">{profileCompleteness}%</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-amber-500 font-medium">Add projects</span> to improve
+                  <span className="text-amber-500 font-medium">Complete your profile</span> to improve
                 </p>
-                <Progress value={85} className="h-1 mt-3" />
+                <Progress value={profileCompleteness} className="h-1 mt-3" />
               </CardContent>
             </Card>
           </motion.div>
@@ -185,55 +214,105 @@ const CandidateDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {upcomingInterviews.map((interview, i) => (
-                    <Card key={i} className="hover-card-animation">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <Avatar>
-                            <AvatarFallback>{interview.company.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h3 className="font-medium">{interview.company}</h3>
-                                <p className="text-sm text-muted-foreground">{interview.role}</p>
-                              </div>
-                              <Badge variant={interview.status === 'Ready to join' ? 'default' : 'outline'}>
-                                {interview.status}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex items-center text-sm text-muted-foreground">
-                              <Calendar size={14} className="mr-1" />
-                              {interview.date} • {interview.time} • {interview.duration}
+                {loadingInterviews ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((i) => (
+                      <Card key={i}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-5 w-40" />
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-4 w-32" />
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="flex justify-end gap-2 mt-3">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            asChild
-                          >
-                            <Link to="/my-interviews">View Details</Link>
-                          </Button>
-                          {interview.status === 'Ready to join' && (
-                            <Button 
-                              size="sm"
-                              onClick={() => startVideoCall(interview.company)}
-                            >
-                              <Video size={14} className="mr-1" />
-                              Join Interview
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : interviews && interviews.length > 0 ? (
+                  <div className="space-y-4">
+                    {interviews.map((interview: any) => {
+                      const scheduledDate = new Date(interview.scheduled_at);
+                      const isToday = new Date().toDateString() === scheduledDate.toDateString();
+                      const isTomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toDateString() === scheduledDate.toDateString();
+                      
+                      const dateDisplay = isToday 
+                        ? 'Today' 
+                        : isTomorrow 
+                          ? 'Tomorrow' 
+                          : scheduledDate.toLocaleDateString();
+                      
+                      const timeDisplay = scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const companyName = interview.applications?.jobs?.companies?.name || 'Company';
+                      const jobTitle = interview.applications?.jobs?.title || 'Job Position';
+                      
+                      const canJoin = isToday && interview.status === 'scheduled';
+                      
+                      return (
+                        <Card key={interview.id} className="hover-card-animation">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <Avatar>
+                                <AvatarFallback>{companyName.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h3 className="font-medium">{companyName}</h3>
+                                    <p className="text-sm text-muted-foreground">{jobTitle}</p>
+                                  </div>
+                                  <Badge variant={canJoin ? 'default' : 'outline'}>
+                                    {canJoin ? 'Ready to join' : interview.status}
+                                  </Badge>
+                                </div>
+                                
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <Calendar size={14} className="mr-1" />
+                                  {dateDisplay} • {timeDisplay} • {interview.duration}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-end gap-2 mt-3">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                asChild
+                              >
+                                <Link to="/my-interviews">View Details</Link>
+                              </Button>
+                              {canJoin && (
+                                <Button 
+                                  size="sm"
+                                  onClick={() => startVideoCall(companyName)}
+                                >
+                                  <Video size={14} className="mr-1" />
+                                  Join Interview
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                    <h3 className="mt-4 text-lg font-medium">No interviews scheduled</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Apply to jobs to get interview invitations
+                    </p>
+                    <Button variant="outline" className="mt-4" asChild>
+                      <Link to="/job-search">
+                        Browse Jobs
+                      </Link>
+                    </Button>
+                  </div>
+                )}
                 
                 <div className="mt-6">
                   <Button variant="outline" className="w-full" asChild>
@@ -262,10 +341,10 @@ const CandidateDashboard = () => {
               <CardContent className="flex-1">
                 <div className="space-y-4">
                   {[
-                    { title: 'Add professional experience', completed: true, icon: <Briefcase size={16} /> },
-                    { title: 'Upload resume/CV', completed: true, icon: <FilePlus size={16} /> },
-                    { title: 'Add skills assessment', completed: true, icon: <BarChart4 size={16} /> },
-                    { title: 'Upload profile picture', completed: false, icon: <User size={16} /> },
+                    { title: 'Add professional experience', completed: false, icon: <Briefcase size={16} /> },
+                    { title: 'Upload resume/CV', completed: false, icon: <FilePlus size={16} /> },
+                    { title: 'Add skills assessment', completed: false, icon: <BarChart4 size={16} /> },
+                    { title: 'Upload profile picture', completed: !!user?.profilePicture, icon: <User size={16} /> },
                     { title: 'Add portfolio projects', completed: false, icon: <BadgeCheck size={16} /> },
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-3">
@@ -306,54 +385,67 @@ const CandidateDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    {
-                      company: 'TechCorp',
-                      role: 'Senior React Developer',
-                      location: 'Remote',
-                      salary: '$120k - $150k',
-                      match: '96%'
-                    },
-                    {
-                      company: 'WebSolutions',
-                      role: 'Frontend Engineer',
-                      location: 'San Francisco, CA',
-                      salary: '$130k - $160k',
-                      match: '92%'
-                    },
-                    {
-                      company: 'InnovateTech',
-                      role: 'Full Stack Developer',
-                      location: 'New York, NY',
-                      salary: '$140k - $170k',
-                      match: '88%'
-                    },
-                  ].map((job, i) => (
-                    <Card key={i} className="hover-card-animation">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <Avatar>
-                            <AvatarFallback>{job.company.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            {job.match} Match
-                          </Badge>
-                        </div>
-                        
-                        <h3 className="font-medium mb-1">{job.role}</h3>
-                        <p className="text-sm text-muted-foreground mb-3">{job.company}</p>
-                        
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
-                          <span>{job.location}</span>
-                          <span>{job.salary}</span>
-                        </div>
-                        
-                        <Button size="sm" className="w-full">Apply Now</Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {loadingJobs ? (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i}>
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between">
+                              <Skeleton className="h-10 w-10 rounded-full" />
+                              <Skeleton className="h-6 w-16" />
+                            </div>
+                            <Skeleton className="h-5 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-9 w-full" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : recommendedJobs && recommendedJobs.length > 0 ? (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {recommendedJobs.map((job: any) => (
+                      <Card key={job.id} className="hover-card-animation">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <Avatar>
+                              {job.companies?.logo ? (
+                                <AvatarImage src={job.companies.logo} alt={job.companies.name} />
+                              ) : (
+                                <AvatarFallback>{job.companies?.name?.charAt(0) || 'C'}</AvatarFallback>
+                              )}
+                            </Avatar>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              New
+                            </Badge>
+                          </div>
+                          
+                          <h3 className="font-medium mb-1">{job.title}</h3>
+                          <p className="text-sm text-muted-foreground mb-3">{job.companies?.name}</p>
+                          
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+                            <span>{job.location || 'Remote'}</span>
+                            <span>{job.salary_range || 'Competitive'}</span>
+                          </div>
+                          
+                          <Button size="sm" className="w-full" asChild>
+                            <Link to={`/apply/${job.id}`}>Apply Now</Link>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Briefcase className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                    <h3 className="mt-4 text-lg font-medium">No recommended jobs</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Complete your profile to get personalized job recommendations
+                    </p>
+                  </div>
+                )}
                 
                 <div className="mt-6">
                   <Button variant="outline" className="w-full" asChild>
@@ -368,7 +460,6 @@ const CandidateDashboard = () => {
           </motion.div>
         </div>
         
-        {/* Video call component */}
         <VideoCall 
           isOpen={isVideoCallOpen} 
           onClose={() => setIsVideoCallOpen(false)} 
