@@ -16,6 +16,7 @@ import NotFoundPage from '@/pages/NotFound';
 import { UserProvider } from '@/contexts/UserContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
+import MyInterviews from '@/pages/MyInterviews';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,9 @@ function App() {
             <Route path="/jobs/:id" element={<JobDetails />} />
             <Route path="/jobs/:id/apply" element={<JobApplication />} />
             <Route path="/interview" element={<InterviewPage />} />
+            <Route path="/my-interviews" element={<MyInterviews />} />
+            <Route path="/interviews" element={<MyInterviews />} />
+            <Route path="/job-search" element={<JobSearch />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
           <Toaster />
