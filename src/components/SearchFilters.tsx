@@ -29,11 +29,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface SearchFiltersProps {
-  onSearch: (filters: any) => void;
+  onSearch?: (filters: any) => void;
+  onFilterChange?: (filters: any) => void;
+  showJobFilters?: boolean;
   className?: string;
 }
 
-const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch, className }) => {
+const SearchFilters: React.FC<SearchFiltersProps> = ({ 
+  onSearch, 
+  onFilterChange,
+  showJobFilters = false,
+  className 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   
@@ -87,24 +94,40 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch, className }) =>
     setActiveFilters(newFilters);
     
     // Send filters to parent component
-    onSearch({
+    const filters = {
       searchTerm,
       experienceRange,
       skills: selectedSkills,
       availability,
       workType
-    });
+    };
+    
+    if (onSearch) {
+      onSearch(filters);
+    }
+    
+    if (onFilterChange) {
+      onFilterChange(filters);
+    }
   };
   
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch({
+    const filters = {
       searchTerm,
       experienceRange,
       skills: selectedSkills,
       availability,
       workType
-    });
+    };
+    
+    if (onSearch) {
+      onSearch(filters);
+    }
+    
+    if (onFilterChange) {
+      onFilterChange(filters);
+    }
   };
   
   const toggleSkill = (skill: string) => {

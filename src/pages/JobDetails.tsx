@@ -261,7 +261,7 @@ const JobDetails = () => {
                   </CardContent>
                 </Card>
                 
-                {job.companies?.description && (
+                {job.companies && job.companies.description && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-lg font-medium mb-2">About {job.companies.name}</h3>

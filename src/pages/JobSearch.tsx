@@ -85,8 +85,8 @@ const JobSearch = () => {
           </form>
 
           <SearchFilters 
-            onFilterChange={handleFilterChange}
-            showJobFilters
+            onSearch={handleFilterChange}
+            showJobFilters={true}
           />
         </div>
 

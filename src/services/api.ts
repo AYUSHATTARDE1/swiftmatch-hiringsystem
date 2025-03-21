@@ -167,7 +167,7 @@ export const getJob = async (jobId: string) => {
     .from('jobs')
     .select(`
       *,
-      companies(id, name, logo, website, industry, size)
+      companies(id, name, logo, website, industry, size, description)
     `)
     .eq('id', jobId)
     .single();
