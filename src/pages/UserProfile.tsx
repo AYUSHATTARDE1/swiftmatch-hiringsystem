@@ -27,11 +27,30 @@ import PageTransition from '@/components/PageTransition';
 import { useUser } from '@/contexts/UserContext';
 import { getUserProfile, updateUserProfile, updateCompanyProfile, updateCandidateProfile, getApplications, getJobs } from '@/services/api';
 
+interface SelectQueryError {
+  error: true;
+}
+
+interface APIProfileData {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  location?: string;
+  profile_image?: string;
+  user_type?: string;
+  created_at?: string;
+  updated_at?: string;
+  candidates?: SelectQueryError | CandidateData[];
+  companies?: SelectQueryError | CompanyData[];
+}
+
 interface CandidateData {
   id: string;
   skills?: string[];
   years_experience?: number;
   availability?: string;
+  title?: string;
 }
 
 interface CompanyData {
@@ -63,7 +82,6 @@ const UserProfile = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [postedJobs, setPostedJobs] = useState<any[]>([]);
   
-  // Form states for editable fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
@@ -87,67 +105,71 @@ const UserProfile = () => {
       try {
         setIsLoading(true);
         if (user?.id) {
-          const userData = await getUserProfile(user.id) as ProfileData;
-          setProfileData(userData);
+          const apiData = await getUserProfile(user.id) as APIProfileData;
           
-          // Set form values
+          const transformedData: ProfileData = {
+            first_name: apiData.first_name,
+            last_name: apiData.last_name,
+            bio: apiData.bio,
+            location: apiData.location,
+            profile_image: apiData.profile_image,
+            candidates: Array.isArray(apiData.candidates) ? apiData.candidates : [],
+            companies: Array.isArray(apiData.companies) ? apiData.companies : []
+          };
+          
+          setProfileData(transformedData);
+          
           if (userType === 'candidate') {
-            setFirstName(userData.first_name || '');
-            setLastName(userData.last_name || '');
-            setBio(userData.bio || '');
-            setLocation(userData.location || '');
+            setFirstName(apiData.first_name || '');
+            setLastName(apiData.last_name || '');
+            setBio(apiData.bio || '');
+            setLocation(apiData.location || '');
             
-            if (userData.candidates && userData.candidates.length > 0) {
-              const candidateInfo = userData.candidates[0];
+            if (Array.isArray(apiData.candidates) && apiData.candidates.length > 0) {
+              const candidateInfo = apiData.candidates[0];
               
-              if (candidateInfo) {
-                if (candidateInfo.skills && Array.isArray(candidateInfo.skills)) {
-                  setSkills(candidateInfo.skills);
-                }
-                
-                if (candidateInfo.years_experience !== undefined) {
-                  setYearsExperience(candidateInfo.years_experience);
-                }
-                
-                if (candidateInfo.availability) {
-                  setAvailability(candidateInfo.availability);
-                }
+              if (Array.isArray(candidateInfo.skills)) {
+                setSkills(candidateInfo.skills);
+              }
+              
+              if (typeof candidateInfo.years_experience === 'number') {
+                setYearsExperience(candidateInfo.years_experience);
+              }
+              
+              if (candidateInfo.availability) {
+                setAvailability(candidateInfo.availability);
               }
             }
             
-            // Fetch applications for candidates
             const candidateApplications = await getApplications({ candidate_id: user.id });
             setApplications(candidateApplications);
           } else if (userType === 'company') {
-            if (userData.companies && userData.companies.length > 0) {
-              const companyInfo = userData.companies[0];
+            if (Array.isArray(apiData.companies) && apiData.companies.length > 0) {
+              const companyInfo = apiData.companies[0];
               
-              if (companyInfo) {
-                if (companyInfo.name) {
-                  setCompanyName(companyInfo.name);
-                }
-                
-                if (companyInfo.industry) {
-                  setIndustry(companyInfo.industry);
-                }
-                
-                if (companyInfo.size) {
-                  setCompanySize(companyInfo.size);
-                }
-                
-                if (companyInfo.description) {
-                  setCompanyDescription(companyInfo.description);
-                }
-                
-                if (companyInfo.location) {
-                  setLocation(companyInfo.location);
-                } else {
-                  setLocation(userData.location || '');
-                }
+              if (companyInfo.name) {
+                setCompanyName(companyInfo.name);
+              }
+              
+              if (companyInfo.industry) {
+                setIndustry(companyInfo.industry);
+              }
+              
+              if (companyInfo.size) {
+                setCompanySize(companyInfo.size);
+              }
+              
+              if (companyInfo.description) {
+                setCompanyDescription(companyInfo.description);
+              }
+              
+              if (companyInfo.location) {
+                setLocation(companyInfo.location);
+              } else {
+                setLocation(apiData.location || '');
               }
             }
             
-            // Fetch jobs and applications for companies
             const companyJobs = await getJobs({ company_id: user.id });
             setPostedJobs(companyJobs);
           }
@@ -173,7 +195,6 @@ const UserProfile = () => {
       
       setIsLoading(true);
       
-      // Update profile data for both user types
       await updateUserProfile(user.id, {
         first_name: firstName,
         last_name: lastName,
@@ -181,7 +202,6 @@ const UserProfile = () => {
         location,
       });
       
-      // Additional updates based on user type
       if (userType === 'candidate' && profileData?.candidates?.[0]?.id) {
         await updateCandidateProfile(profileData.candidates[0].id, {
           skills,
@@ -194,12 +214,21 @@ const UserProfile = () => {
           industry,
           size: companySize,
           description: companyDescription,
-          location, // Add location to company profile update
+          location,
         });
       }
       
-      // Refresh profile data
-      const refreshedData = await getUserProfile(user.id);
+      const refreshedApiData = await getUserProfile(user.id) as APIProfileData;
+      const refreshedData: ProfileData = {
+        first_name: refreshedApiData.first_name,
+        last_name: refreshedApiData.last_name,
+        bio: refreshedApiData.bio,
+        location: refreshedApiData.location,
+        profile_image: refreshedApiData.profile_image,
+        candidates: Array.isArray(refreshedApiData.candidates) ? refreshedApiData.candidates : [],
+        companies: Array.isArray(refreshedApiData.companies) ? refreshedApiData.companies : []
+      };
+      
       setProfileData(refreshedData);
       
       setIsEditing(false);
@@ -231,7 +260,6 @@ const UserProfile = () => {
   };
 
   const handleVideoCall = (application: any) => {
-    // Save application ID in sessionStorage for VideoCall component to use
     sessionStorage.setItem('currentInterview', JSON.stringify({
       applicationId: application.id,
       candidateName: `${application.candidates?.profiles?.first_name} ${application.candidates?.profiles?.last_name}`,
@@ -240,7 +268,7 @@ const UserProfile = () => {
     
     navigate('/interview');
   };
-  
+
   if (isLoading && !profileData) {
     return (
       <PageTransition>
@@ -281,7 +309,6 @@ const UserProfile = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Profile Summary Card */}
           <Card className="md:col-span-1">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4">
@@ -468,7 +495,6 @@ const UserProfile = () => {
             </CardContent>
           </Card>
           
-          {/* Main Profile Content */}
           <div className="md:col-span-2 space-y-6">
             <Tabs defaultValue="about">
               <TabsList className="mb-4">
