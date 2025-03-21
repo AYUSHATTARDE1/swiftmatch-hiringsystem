@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -74,9 +73,9 @@ const UserProfile = () => {
             
             if (userData.candidates && userData.candidates[0]) {
               const candidateData = userData.candidates[0];
-              setSkills(candidateData.skills || []);
-              setYearsExperience(candidateData.years_experience || 0);
-              setAvailability(candidateData.availability || '');
+              setSkills(Array.isArray(candidateData.skills) ? candidateData.skills : []);
+              setYearsExperience(typeof candidateData.years_experience === 'number' ? candidateData.years_experience : 0);
+              setAvailability(typeof candidateData.availability === 'string' ? candidateData.availability : '');
             }
             
             // Fetch applications for candidates
@@ -85,10 +84,10 @@ const UserProfile = () => {
           } else if (userType === 'company') {
             if (userData.companies && userData.companies[0]) {
               const companyData = userData.companies[0];
-              setCompanyName(companyData.name || '');
-              setIndustry(companyData.industry || '');
-              setCompanySize(companyData.size || '');
-              setCompanyDescription(companyData.description || '');
+              setCompanyName(typeof companyData.name === 'string' ? companyData.name : '');
+              setIndustry(typeof companyData.industry === 'string' ? companyData.industry : '');
+              setCompanySize(typeof companyData.size === 'string' ? companyData.size : '');
+              setCompanyDescription(typeof companyData.description === 'string' ? companyData.description : '');
               setLocation(companyData.location || userData.location || '');
             }
             
