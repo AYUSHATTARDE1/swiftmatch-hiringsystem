@@ -73,9 +73,12 @@ const UserProfile = () => {
             
             if (userData.candidates && userData.candidates[0]) {
               const candidateData = userData.candidates[0];
-              setSkills(Array.isArray(candidateData.skills) ? candidateData.skills : []);
-              setYearsExperience(typeof candidateData.years_experience === 'number' ? candidateData.years_experience : 0);
-              setAvailability(typeof candidateData.availability === 'string' ? candidateData.availability : '');
+              // Make sure candidateData.skills is an array before setting
+              if (candidateData && typeof candidateData === 'object') {
+                setSkills(Array.isArray(candidateData.skills) ? candidateData.skills : []);
+                setYearsExperience(candidateData.years_experience !== undefined && typeof candidateData.years_experience === 'number' ? candidateData.years_experience : 0);
+                setAvailability(candidateData.availability !== undefined && typeof candidateData.availability === 'string' ? candidateData.availability : '');
+              }
             }
             
             // Fetch applications for candidates
@@ -84,11 +87,13 @@ const UserProfile = () => {
           } else if (userType === 'company') {
             if (userData.companies && userData.companies[0]) {
               const companyData = userData.companies[0];
-              setCompanyName(typeof companyData.name === 'string' ? companyData.name : '');
-              setIndustry(typeof companyData.industry === 'string' ? companyData.industry : '');
-              setCompanySize(typeof companyData.size === 'string' ? companyData.size : '');
-              setCompanyDescription(typeof companyData.description === 'string' ? companyData.description : '');
-              setLocation(companyData.location || userData.location || '');
+              if (companyData && typeof companyData === 'object') {
+                setCompanyName(companyData.name !== undefined && typeof companyData.name === 'string' ? companyData.name : '');
+                setIndustry(companyData.industry !== undefined && typeof companyData.industry === 'string' ? companyData.industry : '');
+                setCompanySize(companyData.size !== undefined && typeof companyData.size === 'string' ? companyData.size : '');
+                setCompanyDescription(companyData.description !== undefined && typeof companyData.description === 'string' ? companyData.description : '');
+                setLocation(companyData.location !== undefined && typeof companyData.location === 'string' ? companyData.location : userData.location || '');
+              }
             }
             
             // Fetch jobs and applications for companies
