@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -89,28 +88,22 @@ const UserProfile = () => {
             setLocation(userData.location || '');
             
             if (userData.candidates && userData.candidates[0]) {
-              const candidateData = userData.candidates[0] as CandidateData | null;
+              // Get candidate data and ensure it's of the correct type
+              const candidateInfo = userData.candidates[0];
               
-              if (candidateData && typeof candidateData === 'object') {
-                // Safely access properties with proper null/undefined checks
-                if (candidateData.skills && Array.isArray(candidateData.skills)) {
-                  setSkills(candidateData.skills);
-                } else {
-                  setSkills([]);
+              // Make sure candidateInfo is actually an object before proceeding
+              if (candidateInfo && typeof candidateInfo === 'object') {
+                // Type-safe access to candidate properties with null/undefined checks
+                if (Array.isArray(candidateInfo.skills)) {
+                  setSkills(candidateInfo.skills);
                 }
                 
-                if (candidateData.years_experience !== undefined && 
-                    typeof candidateData.years_experience === 'number') {
-                  setYearsExperience(candidateData.years_experience);
-                } else {
-                  setYearsExperience(0);
+                if (typeof candidateInfo.years_experience === 'number') {
+                  setYearsExperience(candidateInfo.years_experience);
                 }
                 
-                if (candidateData.availability !== undefined && 
-                    typeof candidateData.availability === 'string') {
-                  setAvailability(candidateData.availability);
-                } else {
-                  setAvailability('');
+                if (typeof candidateInfo.availability === 'string') {
+                  setAvailability(candidateInfo.availability);
                 }
               }
             }
@@ -120,36 +113,30 @@ const UserProfile = () => {
             setApplications(candidateApplications);
           } else if (userType === 'company') {
             if (userData.companies && userData.companies[0]) {
-              const companyData = userData.companies[0] as CompanyData | null;
+              // Get company data and ensure it's of the correct type
+              const companyInfo = userData.companies[0];
               
-              if (companyData && typeof companyData === 'object') {
-                // Safely access properties with proper null/undefined checks
-                if (companyData.name !== undefined && typeof companyData.name === 'string') {
-                  setCompanyName(companyData.name);
-                } else {
-                  setCompanyName('');
+              // Make sure companyInfo is actually an object before proceeding
+              if (companyInfo && typeof companyInfo === 'object') {
+                // Type-safe access to company properties with null/undefined checks
+                if (typeof companyInfo.name === 'string') {
+                  setCompanyName(companyInfo.name);
                 }
                 
-                if (companyData.industry !== undefined && typeof companyData.industry === 'string') {
-                  setIndustry(companyData.industry);
-                } else {
-                  setIndustry('');
+                if (typeof companyInfo.industry === 'string') {
+                  setIndustry(companyInfo.industry);
                 }
                 
-                if (companyData.size !== undefined && typeof companyData.size === 'string') {
-                  setCompanySize(companyData.size);
-                } else {
-                  setCompanySize('');
+                if (typeof companyInfo.size === 'string') {
+                  setCompanySize(companyInfo.size);
                 }
                 
-                if (companyData.description !== undefined && typeof companyData.description === 'string') {
-                  setCompanyDescription(companyData.description);
-                } else {
-                  setCompanyDescription('');
+                if (typeof companyInfo.description === 'string') {
+                  setCompanyDescription(companyInfo.description);
                 }
                 
-                if (companyData.location !== undefined && typeof companyData.location === 'string') {
-                  setLocation(companyData.location);
+                if (typeof companyInfo.location === 'string') {
+                  setLocation(companyInfo.location);
                 } else {
                   setLocation(userData.location || '');
                 }
