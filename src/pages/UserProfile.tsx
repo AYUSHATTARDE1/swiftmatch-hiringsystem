@@ -43,13 +43,23 @@ interface CompanyData {
   location?: string;
 }
 
+interface ProfileData {
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  location?: string;
+  profile_image?: string;
+  candidates?: CandidateData[];
+  companies?: CompanyData[];
+}
+
 const UserProfile = () => {
   const { user, userType, isAuthenticated } = useUser();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [applications, setApplications] = useState<any[]>([]);
   const [postedJobs, setPostedJobs] = useState<any[]>([]);
   
@@ -77,7 +87,7 @@ const UserProfile = () => {
       try {
         setIsLoading(true);
         if (user?.id) {
-          const userData = await getUserProfile(user.id);
+          const userData = await getUserProfile(user.id) as ProfileData;
           setProfileData(userData);
           
           // Set form values
@@ -87,23 +97,19 @@ const UserProfile = () => {
             setBio(userData.bio || '');
             setLocation(userData.location || '');
             
-            if (userData.candidates && userData.candidates[0]) {
-              // Get candidate data and ensure it's of the correct type
+            if (userData.candidates && userData.candidates.length > 0) {
               const candidateInfo = userData.candidates[0];
               
-              if (candidateInfo && typeof candidateInfo === 'object') {
-                // Using optional chaining and proper null checks
-                if (candidateInfo?.skills && Array.isArray(candidateInfo.skills)) {
+              if (candidateInfo) {
+                if (candidateInfo.skills && Array.isArray(candidateInfo.skills)) {
                   setSkills(candidateInfo.skills);
                 }
                 
-                if (candidateInfo?.years_experience !== undefined && 
-                    typeof candidateInfo.years_experience === 'number') {
+                if (candidateInfo.years_experience !== undefined) {
                   setYearsExperience(candidateInfo.years_experience);
                 }
                 
-                if (candidateInfo?.availability && 
-                    typeof candidateInfo.availability === 'string') {
+                if (candidateInfo.availability) {
                   setAvailability(candidateInfo.availability);
                 }
               }
@@ -113,29 +119,27 @@ const UserProfile = () => {
             const candidateApplications = await getApplications({ candidate_id: user.id });
             setApplications(candidateApplications);
           } else if (userType === 'company') {
-            if (userData.companies && userData.companies[0]) {
-              // Get company data and ensure it's of the correct type
+            if (userData.companies && userData.companies.length > 0) {
               const companyInfo = userData.companies[0];
               
-              if (companyInfo && typeof companyInfo === 'object') {
-                // Using optional chaining and proper null checks
-                if (companyInfo?.name && typeof companyInfo.name === 'string') {
+              if (companyInfo) {
+                if (companyInfo.name) {
                   setCompanyName(companyInfo.name);
                 }
                 
-                if (companyInfo?.industry && typeof companyInfo.industry === 'string') {
+                if (companyInfo.industry) {
                   setIndustry(companyInfo.industry);
                 }
                 
-                if (companyInfo?.size && typeof companyInfo.size === 'string') {
+                if (companyInfo.size) {
                   setCompanySize(companyInfo.size);
                 }
                 
-                if (companyInfo?.description && typeof companyInfo.description === 'string') {
+                if (companyInfo.description) {
                   setCompanyDescription(companyInfo.description);
                 }
                 
-                if (companyInfo?.location && typeof companyInfo.location === 'string') {
+                if (companyInfo.location) {
                   setLocation(companyInfo.location);
                 } else {
                   setLocation(userData.location || '');
