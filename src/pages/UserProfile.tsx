@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -26,6 +27,22 @@ import Navbar from '@/components/Navbar';
 import PageTransition from '@/components/PageTransition';
 import { useUser } from '@/contexts/UserContext';
 import { getUserProfile, updateUserProfile, updateCompanyProfile, updateCandidateProfile, getApplications, getJobs } from '@/services/api';
+
+interface CandidateData {
+  id: string;
+  skills?: string[];
+  years_experience?: number;
+  availability?: string;
+}
+
+interface CompanyData {
+  id: string;
+  name?: string;
+  industry?: string;
+  size?: string;
+  description?: string;
+  location?: string;
+}
 
 const UserProfile = () => {
   const { user, userType, isAuthenticated } = useUser();
@@ -72,12 +89,29 @@ const UserProfile = () => {
             setLocation(userData.location || '');
             
             if (userData.candidates && userData.candidates[0]) {
-              const candidateData = userData.candidates[0];
-              // Make sure candidateData.skills is an array before setting
+              const candidateData = userData.candidates[0] as CandidateData | null;
+              
               if (candidateData && typeof candidateData === 'object') {
-                setSkills(Array.isArray(candidateData.skills) ? candidateData.skills : []);
-                setYearsExperience(candidateData.years_experience !== undefined && typeof candidateData.years_experience === 'number' ? candidateData.years_experience : 0);
-                setAvailability(candidateData.availability !== undefined && typeof candidateData.availability === 'string' ? candidateData.availability : '');
+                // Safely access properties with proper null/undefined checks
+                if (candidateData.skills && Array.isArray(candidateData.skills)) {
+                  setSkills(candidateData.skills);
+                } else {
+                  setSkills([]);
+                }
+                
+                if (candidateData.years_experience !== undefined && 
+                    typeof candidateData.years_experience === 'number') {
+                  setYearsExperience(candidateData.years_experience);
+                } else {
+                  setYearsExperience(0);
+                }
+                
+                if (candidateData.availability !== undefined && 
+                    typeof candidateData.availability === 'string') {
+                  setAvailability(candidateData.availability);
+                } else {
+                  setAvailability('');
+                }
               }
             }
             
@@ -86,13 +120,39 @@ const UserProfile = () => {
             setApplications(candidateApplications);
           } else if (userType === 'company') {
             if (userData.companies && userData.companies[0]) {
-              const companyData = userData.companies[0];
+              const companyData = userData.companies[0] as CompanyData | null;
+              
               if (companyData && typeof companyData === 'object') {
-                setCompanyName(companyData.name !== undefined && typeof companyData.name === 'string' ? companyData.name : '');
-                setIndustry(companyData.industry !== undefined && typeof companyData.industry === 'string' ? companyData.industry : '');
-                setCompanySize(companyData.size !== undefined && typeof companyData.size === 'string' ? companyData.size : '');
-                setCompanyDescription(companyData.description !== undefined && typeof companyData.description === 'string' ? companyData.description : '');
-                setLocation(companyData.location !== undefined && typeof companyData.location === 'string' ? companyData.location : userData.location || '');
+                // Safely access properties with proper null/undefined checks
+                if (companyData.name !== undefined && typeof companyData.name === 'string') {
+                  setCompanyName(companyData.name);
+                } else {
+                  setCompanyName('');
+                }
+                
+                if (companyData.industry !== undefined && typeof companyData.industry === 'string') {
+                  setIndustry(companyData.industry);
+                } else {
+                  setIndustry('');
+                }
+                
+                if (companyData.size !== undefined && typeof companyData.size === 'string') {
+                  setCompanySize(companyData.size);
+                } else {
+                  setCompanySize('');
+                }
+                
+                if (companyData.description !== undefined && typeof companyData.description === 'string') {
+                  setCompanyDescription(companyData.description);
+                } else {
+                  setCompanyDescription('');
+                }
+                
+                if (companyData.location !== undefined && typeof companyData.location === 'string') {
+                  setLocation(companyData.location);
+                } else {
+                  setLocation(userData.location || '');
+                }
               }
             }
             
