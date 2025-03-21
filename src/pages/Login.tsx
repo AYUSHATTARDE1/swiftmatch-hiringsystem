@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -25,7 +24,7 @@ const Login = () => {
   const location = useLocation();
   const { login } = useUser();
   
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

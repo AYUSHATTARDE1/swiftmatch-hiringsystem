@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -22,7 +21,6 @@ const Navbar = () => {
   const isHomePage = location.pathname === '/';
   const { isAuthenticated, user, userType, logout } = useUser();
   
-  // Track scroll position for navbar transparency
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -71,7 +69,6 @@ const Navbar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4 md:justify-start md:space-x-10">
-          {/* Logo */}
           <div className="flex justify-start lg:w-0 lg:flex-1">
             <Link 
               to="/" 
@@ -84,7 +81,6 @@ const Navbar = () => {
             </Link>
           </div>
           
-          {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             <button
               type="button"
@@ -100,7 +96,6 @@ const Navbar = () => {
             </button>
           </div>
           
-          {/* Desktop navigation */}
           <nav className="hidden md:flex space-x-10">
             {navItems.map((item) => (
               <Link
@@ -118,7 +113,6 @@ const Navbar = () => {
             ))}
           </nav>
           
-          {/* Right side buttons */}
           <div className="hidden md:flex items-center justify-end md:flex-1 lg:w-0 space-x-4">
             {isAuthenticated ? (
               <DropdownMenu>
@@ -141,7 +135,7 @@ const Navbar = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/my-profile" className="cursor-pointer">
+                    <Link to="/profile" className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       <span>My Profile</span>
                     </Link>
@@ -167,7 +161,6 @@ const Navbar = () => {
         </div>
       </div>
       
-      {/* Mobile menu */}
       {isMobileMenuOpen && (
         <div className="absolute top-full left-0 w-full md:hidden bg-background border-b border-border/50 animate-fade-in">
           <div className="px-4 pt-2 pb-6 space-y-5 divide-y divide-border/50">
@@ -192,7 +185,7 @@ const Navbar = () => {
               {isAuthenticated ? (
                 <>
                   <Button variant="outline" asChild className="w-full justify-center">
-                    <Link to="/my-profile" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
                       <User className="mr-2 h-4 w-4" />
                       My Profile
                     </Link>
