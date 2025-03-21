@@ -17,19 +17,29 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 
 interface InterviewSchedulerProps {
   onSchedule: (date: Date, timeSlot: string, durationType: string) => void;
+  candidateId?: string;
+  applicationId?: string;
   className?: string;
 }
 
 const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ 
   onSchedule,
+  candidateId,
+  applicationId,
   className
 }) => {
   const [date, setDate] = useState<Date>();
   const [timeSlot, setTimeSlot] = useState<string>();
   const [durationType, setDurationType] = useState<string>("30min");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const { isAuthenticated, userType } = useUser();
 
   const timeSlots = [
     "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", 
@@ -45,9 +55,77 @@ const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
     { value: "60min", label: "1 hour" },
   ];
 
-  const handleSchedule = () => {
-    if (date && timeSlot) {
-      onSchedule(date, timeSlot, durationType);
+  const handleSchedule = async () => {
+    if (!date || !timeSlot) return;
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to schedule interviews",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (userType !== 'company') {
+      toast({
+        title: "Permission denied",
+        description: "Only companies can schedule interviews",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Create a datetime by combining date and timeSlot
+      const [hours, minutes] = timeSlot.replace(/\s(AM|PM)/, '').split(':').map(Number);
+      const isPM = timeSlot.includes('PM');
+      
+      const scheduledAt = new Date(date);
+      scheduledAt.setHours(isPM && hours !== 12 ? hours + 12 : hours);
+      scheduledAt.setMinutes(minutes);
+      
+      if (applicationId) {
+        // Create the interview in the database
+        const { data, error } = await supabase
+          .from('interviews')
+          .insert({
+            application_id: applicationId,
+            scheduled_at: scheduledAt.toISOString(),
+            duration: durationType,
+            status: 'scheduled'
+          })
+          .select();
+          
+        if (error) {
+          throw error;
+        }
+        
+        toast({
+          title: "Interview scheduled",
+          description: `The interview has been scheduled for ${format(scheduledAt, 'PPP')} at ${timeSlot}`,
+        });
+        
+        // Call parent callback
+        onSchedule(date, timeSlot, durationType);
+      } else {
+        toast({
+          title: "Missing information",
+          description: "Application ID is required to schedule an interview",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error scheduling interview:", error);
+      toast({
+        title: "Failed to schedule interview",
+        description: "There was a problem scheduling the interview. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,10 +204,10 @@ const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
       
       <Button 
         onClick={handleSchedule} 
-        disabled={!date || !timeSlot}
+        disabled={!date || !timeSlot || loading}
         className="w-full"
       >
-        Schedule Interview
+        {loading ? "Scheduling..." : "Schedule Interview"}
       </Button>
     </div>
   );

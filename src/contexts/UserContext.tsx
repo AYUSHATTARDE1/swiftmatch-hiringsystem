@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 type UserType = 'company' | 'candidate' | null;
 
@@ -18,6 +19,7 @@ interface UserContextType {
     email: string;
     profilePicture?: string;
   } | null;
+  loading: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -26,157 +28,330 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userType, setUserType] = useState<UserType>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<UserContextType['user']>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check local storage on initial load
+  // Check for existing session on initial load
   useEffect(() => {
-    const storedUserType = localStorage.getItem('userType');
-    const storedUser = localStorage.getItem('user');
+    const initializeAuth = async () => {
+      setLoading(true);
+      
+      try {
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileError) {
+            throw profileError;
+          }
+          
+          // Set user type based on profile
+          const type = profileData.user_type as UserType;
+          setUserType(type);
+          
+          // Get user details based on type
+          let userData;
+          if (type === 'company') {
+            const { data, error } = await supabase
+              .from('companies')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (error) throw error;
+            userData = { 
+              id: session.user.id, 
+              name: data.name || 'Company',
+              email: session.user.email || '',
+              profilePicture: data.logo 
+            };
+          } else {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (profileError) throw profileError;
+            userData = { 
+              id: session.user.id, 
+              name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
+              email: session.user.email || '',
+              profilePicture: profileData.profile_image 
+            };
+          }
+          
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        // Reset auth state if there's an error
+        setUser(null);
+        setUserType(null);
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (storedUserType) {
-      setUserType(storedUserType as UserType);
-    }
+    initializeAuth();
     
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          return;
+        }
+        
+        // Set user type based on profile
+        const type = profileData.user_type as UserType;
+        setUserType(type);
+        
+        // Get user details based on type
+        let userData;
+        if (type === 'company') {
+          const { data, error } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching company:', error);
+            return;
+          }
+          
+          userData = { 
+            id: session.user.id, 
+            name: data.name || 'Company',
+            email: session.user.email || '',
+            profilePicture: data.logo 
+          };
+        } else {
+          userData = { 
+            id: session.user.id, 
+            name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
+            email: session.user.email || '',
+            profilePicture: profileData.profile_image 
+          };
+        }
+        
+        setUser(userData);
+        setIsAuthenticated(true);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setUserType(null);
+        setIsAuthenticated(false);
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
   
   const login = async (email: string, password: string, type: UserType): Promise<void> => {
     try {
-      // In a real app with Supabase, we would use:
-      // const { data, error } = await supabase.auth.signInWithPassword({
-      //   email,
-      //   password,
-      // });
-      // if (error) throw error;
+      setLoading(true);
       
-      // For demo purposes, we'll simulate success
-      // This would be replaced with Supabase authentication
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          try {
-            // Mock successful login
-            const mockUser = {
-              id: type === 'company' ? 'comp_123456' : 'cand_123456',
-              name: type === 'company' ? 'Acme Corporation' : 'John Doe',
-              email: email,
-              profilePicture: type === 'company' ? undefined : 'https://i.pravatar.cc/300'
-            };
-            
-            setUser(mockUser);
-            setUserType(type);
-            setIsAuthenticated(true);
-            
-            // Save to localStorage (would be handled by Supabase session)
-            localStorage.setItem('userType', type);
-            localStorage.setItem('user', JSON.stringify(mockUser));
-            
-            toast({
-              title: "Login successful",
-              description: `Welcome back, ${mockUser.name}!`,
-            });
-            
-            resolve();
-          } catch (error) {
-            toast({
-              title: "Login failed",
-              description: "An error occurred during login. Please try again.",
-              variant: "destructive",
-            });
-            reject(error);
-          }
-        }, 1000);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
+      
+      if (error) throw error;
+      
+      // Profile should be created by the trigger we set up in SQL
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profileError) {
+        throw profileError;
+      }
+      
+      // If we're trying to log in as a different user type than what's in the database
+      if (type !== profileData.user_type) {
+        await supabase.auth.signOut();
+        throw new Error(`This account is registered as a ${profileData.user_type}, not a ${type}`);
+      }
+      
+      setUserType(type);
+      
+      // Get user details based on type
+      let userData;
+      if (type === 'company') {
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (companyError) {
+          throw companyError;
+        }
+        
+        userData = { 
+          id: data.user.id, 
+          name: companyData.name || 'Company',
+          email: data.user.email || '',
+          profilePicture: companyData.logo 
+        };
+      } else {
+        userData = { 
+          id: data.user.id, 
+          name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
+          email: data.user.email || '',
+          profilePicture: profileData.profile_image 
+        };
+      }
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${userData.name}!`,
+      });
+      
     } catch (error) {
+      console.error('Login error:', error);
+      let errorMessage = "An error occurred during login. Please try again.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Login failed",
-        description: "An error occurred during login. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
   
   const signup = async (email: string, password: string, name: string, type: UserType): Promise<void> => {
     try {
-      // In a real app with Supabase, we would use:
-      // const { data, error } = await supabase.auth.signUp({
-      //   email,
-      //   password,
-      //   options: {
-      //     data: {
-      //       name,
-      //       user_type: type
-      //     }
-      //   }
-      // });
-      // if (error) throw error;
+      setLoading(true);
       
-      // For demo purposes, we'll simulate success
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          try {
-            // Mock successful signup
-            const mockUser = {
-              id: type === 'company' ? `comp_${Date.now()}` : `cand_${Date.now()}`,
-              name: name,
-              email: email,
-              profilePicture: type === 'company' ? undefined : 'https://i.pravatar.cc/300'
-            };
-            
-            setUser(mockUser);
-            setUserType(type);
-            setIsAuthenticated(true);
-            
-            // Save to localStorage (would be handled by Supabase session)
-            localStorage.setItem('userType', type);
-            localStorage.setItem('user', JSON.stringify(mockUser));
-            
-            toast({
-              title: "Account created",
-              description: `Welcome to Intervue, ${name}!`,
-            });
-            
-            resolve();
-          } catch (error) {
-            toast({
-              title: "Signup failed",
-              description: "An error occurred during signup. Please try again.",
-              variant: "destructive",
-            });
-            reject(error);
+      // For company, name is company name
+      // For candidate, name is split into first and last name
+      let firstName = '';
+      let lastName = '';
+      
+      if (type === 'candidate') {
+        const nameParts = name.split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            company_name: type === 'company' ? name : undefined,
+            user_type: type
           }
-        }, 1000);
+        }
       });
+      
+      if (error) throw error;
+      
+      if (!data.user) {
+        throw new Error('User creation failed');
+      }
+      
+      // The trigger will create the profile and type-specific record
+      
+      const userData = { 
+        id: data.user.id, 
+        name: type === 'company' ? name : `${firstName} ${lastName}`.trim(),
+        email: data.user.email || '',
+      };
+      
+      setUser(userData);
+      setUserType(type);
+      setIsAuthenticated(true);
+      
+      toast({
+        title: "Account created",
+        description: `Welcome to Intervue, ${name}!`,
+      });
+      
     } catch (error) {
+      console.error('Signup error:', error);
+      let errorMessage = "An error occurred during signup. Please try again.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Signup failed",
-        description: "An error occurred during signup. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
   
-  const logout = () => {
-    // In a real app with Supabase, we would use:
-    // await supabase.auth.signOut();
+  const logout = async () => {
+    setLoading(true);
     
-    setUser(null);
-    setUserType(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('userType');
-    localStorage.removeItem('user');
-    
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    
-    navigate('/login');
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      setUser(null);
+      setUserType(null);
+      setIsAuthenticated(false);
+      
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      
+      navigate('/login');
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (
@@ -187,7 +362,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       signup, 
       logout,
-      user
+      user,
+      loading
     }}>
       {children}
     </UserContext.Provider>
