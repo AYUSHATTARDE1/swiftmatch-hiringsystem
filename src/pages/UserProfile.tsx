@@ -91,18 +91,19 @@ const UserProfile = () => {
               // Get candidate data and ensure it's of the correct type
               const candidateInfo = userData.candidates[0];
               
-              // Make sure candidateInfo is actually an object before proceeding
               if (candidateInfo && typeof candidateInfo === 'object') {
-                // Type-safe access to candidate properties with null/undefined checks
-                if (Array.isArray(candidateInfo.skills)) {
+                // Using optional chaining and proper null checks
+                if (candidateInfo?.skills && Array.isArray(candidateInfo.skills)) {
                   setSkills(candidateInfo.skills);
                 }
                 
-                if (typeof candidateInfo.years_experience === 'number') {
+                if (candidateInfo?.years_experience !== undefined && 
+                    typeof candidateInfo.years_experience === 'number') {
                   setYearsExperience(candidateInfo.years_experience);
                 }
                 
-                if (typeof candidateInfo.availability === 'string') {
+                if (candidateInfo?.availability && 
+                    typeof candidateInfo.availability === 'string') {
                   setAvailability(candidateInfo.availability);
                 }
               }
@@ -116,26 +117,25 @@ const UserProfile = () => {
               // Get company data and ensure it's of the correct type
               const companyInfo = userData.companies[0];
               
-              // Make sure companyInfo is actually an object before proceeding
               if (companyInfo && typeof companyInfo === 'object') {
-                // Type-safe access to company properties with null/undefined checks
-                if (typeof companyInfo.name === 'string') {
+                // Using optional chaining and proper null checks
+                if (companyInfo?.name && typeof companyInfo.name === 'string') {
                   setCompanyName(companyInfo.name);
                 }
                 
-                if (typeof companyInfo.industry === 'string') {
+                if (companyInfo?.industry && typeof companyInfo.industry === 'string') {
                   setIndustry(companyInfo.industry);
                 }
                 
-                if (typeof companyInfo.size === 'string') {
+                if (companyInfo?.size && typeof companyInfo.size === 'string') {
                   setCompanySize(companyInfo.size);
                 }
                 
-                if (typeof companyInfo.description === 'string') {
+                if (companyInfo?.description && typeof companyInfo.description === 'string') {
                   setCompanyDescription(companyInfo.description);
                 }
                 
-                if (typeof companyInfo.location === 'string') {
+                if (companyInfo?.location && typeof companyInfo.location === 'string') {
                   setLocation(companyInfo.location);
                 } else {
                   setLocation(userData.location || '');
