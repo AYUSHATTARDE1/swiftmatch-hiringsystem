@@ -1,18 +1,18 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import HomePage from '@/pages/HomePage';
+import HomePage from '@/pages/Index';
 import Login from '@/pages/Login';
 import Signup from '@/pages/Signup';
 import CandidateDashboard from '@/pages/CandidateDashboard';
 import CompanyDashboard from '@/pages/CompanyDashboard';
-import CandidatesPage from '@/pages/CandidatesPage';
+import CandidatesPage from '@/pages/Candidates';
 import CandidateProfile from '@/pages/CandidateProfile';
 import UserProfile from '@/pages/UserProfile';
 import JobSearch from '@/pages/JobSearch';
 import JobDetails from '@/pages/JobDetails';
-import JobApplication from '@/pages/JobApplication';
+import JobApplication from '@/pages/ApplyJob';
 import InterviewPage from '@/pages/InterviewPage';
-import NotFoundPage from '@/pages/NotFoundPage';
+import NotFoundPage from '@/pages/NotFound';
 import { UserProvider } from '@/contexts/UserContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';

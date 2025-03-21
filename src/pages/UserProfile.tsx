@@ -139,6 +139,7 @@ const UserProfile = () => {
           industry,
           size: companySize,
           description: companyDescription,
+          location, // Add location to company profile update
         });
       }
       
@@ -178,8 +179,8 @@ const UserProfile = () => {
     // Save application ID in sessionStorage for VideoCall component to use
     sessionStorage.setItem('currentInterview', JSON.stringify({
       applicationId: application.id,
-      candidateName: `${application.candidates.profiles.first_name} ${application.candidates.profiles.last_name}`,
-      jobTitle: application.jobs.title
+      candidateName: `${application.candidates?.profiles?.first_name} ${application.candidates?.profiles?.last_name}`,
+      jobTitle: application.jobs?.title
     }));
     
     navigate('/interview');
