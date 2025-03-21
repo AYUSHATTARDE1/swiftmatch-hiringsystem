@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -11,7 +11,8 @@ import {
   GraduationCap,
   Edit,
   Upload,
-  Save
+  Save,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,22 +21,183 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import Navbar from '@/components/Navbar';
 import PageTransition from '@/components/PageTransition';
 import { useUser } from '@/contexts/UserContext';
+import { getUserProfile, updateUserProfile, updateCompanyProfile, updateCandidateProfile, getApplications, getJobs } from '@/services/api';
 
 const UserProfile = () => {
-  const { user, userType } = useUser();
+  const { user, userType, isAuthenticated } = useUser();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [postedJobs, setPostedJobs] = useState<any[]>([]);
   
-  const handleSaveProfile = () => {
-    setIsEditing(false);
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been successfully updated.",
-    });
+  // Form states for editable fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [bio, setBio] = useState('');
+  const [location, setLocation] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [companySize, setCompanySize] = useState('');
+  const [companyDescription, setCompanyDescription] = useState('');
+  const [skills, setSkills] = useState<string[]>([]);
+  const [yearsExperience, setYearsExperience] = useState(0);
+  const [availability, setAvailability] = useState('');
+  const [newSkill, setNewSkill] = useState('');
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchUserData = async () => {
+      try {
+        setIsLoading(true);
+        if (user?.id) {
+          const userData = await getUserProfile(user.id);
+          setProfileData(userData);
+          
+          // Set form values
+          if (userType === 'candidate') {
+            setFirstName(userData.first_name || '');
+            setLastName(userData.last_name || '');
+            setBio(userData.bio || '');
+            setLocation(userData.location || '');
+            
+            if (userData.candidates && userData.candidates[0]) {
+              const candidateData = userData.candidates[0];
+              setSkills(candidateData.skills || []);
+              setYearsExperience(candidateData.years_experience || 0);
+              setAvailability(candidateData.availability || '');
+            }
+            
+            // Fetch applications for candidates
+            const candidateApplications = await getApplications({ candidate_id: user.id });
+            setApplications(candidateApplications);
+          } else if (userType === 'company') {
+            if (userData.companies && userData.companies[0]) {
+              const companyData = userData.companies[0];
+              setCompanyName(companyData.name || '');
+              setIndustry(companyData.industry || '');
+              setCompanySize(companyData.size || '');
+              setCompanyDescription(companyData.description || '');
+              setLocation(companyData.location || userData.location || '');
+            }
+            
+            // Fetch jobs and applications for companies
+            const companyJobs = await getJobs({ company_id: user.id });
+            setPostedJobs(companyJobs);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast({
+          title: "Failed to load profile",
+          description: "There was an error loading your profile data. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [user?.id, userType, isAuthenticated, navigate]);
+
+  const handleSaveProfile = async () => {
+    try {
+      if (!user?.id) return;
+      
+      setIsLoading(true);
+      
+      // Update profile data for both user types
+      await updateUserProfile(user.id, {
+        first_name: firstName,
+        last_name: lastName,
+        bio,
+        location,
+      });
+      
+      // Additional updates based on user type
+      if (userType === 'candidate' && profileData?.candidates?.[0]?.id) {
+        await updateCandidateProfile(profileData.candidates[0].id, {
+          skills,
+          years_experience: yearsExperience,
+          availability,
+        });
+      } else if (userType === 'company' && profileData?.companies?.[0]?.id) {
+        await updateCompanyProfile(profileData.companies[0].id, {
+          name: companyName,
+          industry,
+          size: companySize,
+          description: companyDescription,
+        });
+      }
+      
+      // Refresh profile data
+      const refreshedData = await getUserProfile(user.id);
+      setProfileData(refreshedData);
+      
+      setIsEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated.",
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating your profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !skills.includes(newSkill.trim())) {
+      setSkills([...skills, newSkill.trim()]);
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setSkills(skills.filter(skill => skill !== skillToRemove));
+  };
+
+  const handleVideoCall = (application: any) => {
+    // Save application ID in sessionStorage for VideoCall component to use
+    sessionStorage.setItem('currentInterview', JSON.stringify({
+      applicationId: application.id,
+      candidateName: `${application.candidates.profiles.first_name} ${application.candidates.profiles.last_name}`,
+      jobTitle: application.jobs.title
+    }));
+    
+    navigate('/interview');
+  };
+  
+  if (isLoading && !profileData) {
+    return (
+      <PageTransition>
+        <Navbar />
+        <div className="page-container flex items-center justify-center min-h-[80vh]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground">Loading profile...</p>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
@@ -46,6 +208,7 @@ const UserProfile = () => {
           <Button 
             onClick={() => setIsEditing(!isEditing)}
             variant={isEditing ? "destructive" : "default"}
+            disabled={isLoading}
           >
             {isEditing ? (
               <>
@@ -67,9 +230,11 @@ const UserProfile = () => {
             <CardHeader className="text-center">
               <div className="mx-auto mb-4">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.profilePicture} alt={user?.name} />
+                  <AvatarImage src={profileData?.profile_image} alt={user?.name} />
                   <AvatarFallback className="text-2xl">
-                    {user?.name?.charAt(0) || 'U'}
+                    {userType === 'candidate' 
+                      ? `${firstName.charAt(0)}${lastName.charAt(0)}`
+                      : companyName.charAt(0) || 'C'}
                   </AvatarFallback>
                 </Avatar>
                 {isEditing && (
@@ -79,15 +244,46 @@ const UserProfile = () => {
                   </Button>
                 )}
               </div>
-              <CardTitle className="text-xl">{user?.name}</CardTitle>
+              <CardTitle className="text-xl">
+                {isEditing ? (
+                  userType === 'candidate' ? (
+                    <div className="space-y-2">
+                      <Input 
+                        placeholder="First Name" 
+                        value={firstName} 
+                        onChange={(e) => setFirstName(e.target.value)}
+                      />
+                      <Input 
+                        placeholder="Last Name" 
+                        value={lastName} 
+                        onChange={(e) => setLastName(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <Input 
+                      placeholder="Company Name" 
+                      value={companyName} 
+                      onChange={(e) => setCompanyName(e.target.value)}
+                    />
+                  )
+                ) : (
+                  userType === 'candidate' 
+                    ? `${firstName} ${lastName}` 
+                    : companyName
+                )}
+              </CardTitle>
               <div className="text-muted-foreground">
-                {userType === 'candidate' ? 'Senior Developer' : 'Hiring Manager'}
+                {userType === 'candidate' 
+                  ? profileData?.candidates?.[0]?.title || 'Professional' 
+                  : 'Company'}
               </div>
               
               {!isEditing && (
                 <div className="mt-2">
                   <Badge variant="outline" className="mr-1">
-                    {userType === 'candidate' ? 'Available for work' : 'Actively hiring'}
+                    {userType === 'candidate' 
+                      ? (availability || 'Available for work') 
+                      : 'Actively hiring'}
                   </Badge>
                 </div>
               )}
@@ -100,49 +296,117 @@ const UserProfile = () => {
                   <span>{user?.email}</span>
                 </div>
                 
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Location</label>
+                    <Input 
+                      placeholder="Location" 
+                      value={location} 
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center text-sm">
+                    <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span>{location || 'Add your location'}</span>
+                  </div>
+                )}
+                
                 {userType === 'candidate' && (
                   <>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>San Francisco, CA</span>
-                    </div>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Years of Experience</label>
+                        <Input 
+                          type="number" 
+                          min="0"
+                          placeholder="Years of experience" 
+                          value={yearsExperience} 
+                          onChange={(e) => setYearsExperience(Number(e.target.value))}
+                          className="text-sm"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-sm">
+                        <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <span>{yearsExperience || 0} years experience</span>
+                      </div>
+                    )}
                     
-                    <div className="flex items-center text-sm">
-                      <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>5 years experience</span>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Available now</span>
-                    </div>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Availability</label>
+                        <Input 
+                          placeholder="e.g., Available now, Available in 2 weeks" 
+                          value={availability} 
+                          onChange={(e) => setAvailability(e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-sm">
+                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <span>{availability || 'Not specified'}</span>
+                      </div>
+                    )}
                   </>
                 )}
                 
                 {userType === 'company' && (
                   <>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Acme Corporation HQ</span>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>Tech Industry</span>
-                    </div>
-                    
-                    <div className="flex items-center text-sm">
-                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>50-200 employees</span>
-                    </div>
+                    {isEditing ? (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Industry</label>
+                          <Input 
+                            placeholder="Industry" 
+                            value={industry} 
+                            onChange={(e) => setIndustry(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Company Size</label>
+                          <Input 
+                            placeholder="e.g., 1-10, 11-50, 51-200" 
+                            value={companySize} 
+                            onChange={(e) => setCompanySize(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center text-sm">
+                          <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <span>{industry || 'Industry not specified'}</span>
+                        </div>
+                        
+                        <div className="flex items-center text-sm">
+                          <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <span>{companySize || 'Company size not specified'}</span>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
               
               {isEditing && (
-                <Button className="w-full mt-6" onClick={handleSaveProfile}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
+                <Button className="w-full mt-6" onClick={handleSaveProfile} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
               )}
             </CardContent>
@@ -155,15 +419,14 @@ const UserProfile = () => {
                 <TabsTrigger value="about">About</TabsTrigger>
                 {userType === 'candidate' && (
                   <>
-                    <TabsTrigger value="experience">Experience</TabsTrigger>
-                    <TabsTrigger value="education">Education</TabsTrigger>
                     <TabsTrigger value="skills">Skills</TabsTrigger>
+                    <TabsTrigger value="applications">Applications</TabsTrigger>
                   </>
                 )}
                 {userType === 'company' && (
                   <>
                     <TabsTrigger value="jobs">Job Postings</TabsTrigger>
-                    <TabsTrigger value="team">Team</TabsTrigger>
+                    <TabsTrigger value="applications">Applications</TabsTrigger>
                   </>
                 )}
               </TabsList>
@@ -171,18 +434,24 @@ const UserProfile = () => {
               <TabsContent value="about" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">About Me</CardTitle>
+                    <CardTitle className="text-lg">About {userType === 'candidate' ? 'Me' : 'Company'}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {userType === 'candidate' ? (
-                      <p className="text-muted-foreground">
-                        Senior developer with 5+ years of experience in building web applications using React, TypeScript, and Node.js. 
-                        Passionate about creating user-friendly interfaces and solving complex problems.
-                      </p>
+                    {isEditing ? (
+                      <Textarea 
+                        placeholder={`Write about ${userType === 'candidate' ? 'yourself' : 'your company'}`}
+                        value={userType === 'candidate' ? bio : companyDescription}
+                        onChange={(e) => userType === 'candidate' 
+                          ? setBio(e.target.value) 
+                          : setCompanyDescription(e.target.value)
+                        }
+                        className="min-h-[150px]"
+                      />
                     ) : (
                       <p className="text-muted-foreground">
-                        Acme Corporation is a leading technology company specializing in innovative software solutions.
-                        We are constantly looking for talented individuals to join our growing team.
+                        {userType === 'candidate' 
+                          ? (bio || 'No bio provided. Click Edit Profile to add information about yourself.') 
+                          : (companyDescription || 'No company description provided. Click Edit Profile to add information about your company.')}
                       </p>
                     )}
                   </CardContent>
@@ -194,11 +463,42 @@ const UserProfile = () => {
                       <CardTitle className="text-lg">Top Skills</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {["React", "TypeScript", "Node.js", "GraphQL", "UI/UX Design"].map((skill) => (
-                          <Badge key={skill} variant="secondary">{skill}</Badge>
-                        ))}
-                      </div>
+                      {isEditing ? (
+                        <div className="space-y-4">
+                          <div className="flex flex-wrap gap-2">
+                            {skills.map((skill) => (
+                              <Badge key={skill} variant="secondary" className="pl-2 pr-1 py-1">
+                                {skill}
+                                <button 
+                                  className="ml-1 text-xs hover:text-destructive"
+                                  onClick={() => handleRemoveSkill(skill)}
+                                >
+                                  ×
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input 
+                              placeholder="Add a skill" 
+                              value={newSkill}
+                              onChange={(e) => setNewSkill(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                            />
+                            <Button variant="outline" onClick={handleAddSkill}>Add</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {skills && skills.length > 0 ? (
+                            skills.map((skill) => (
+                              <Badge key={skill} variant="secondary">{skill}</Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">No skills added yet. Click Edit Profile to add your skills.</span>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -206,111 +506,89 @@ const UserProfile = () => {
               
               {userType === 'candidate' && (
                 <>
-                  <TabsContent value="experience" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Work Experience</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">Senior Frontend Developer</h3>
-                            <span className="text-sm text-muted-foreground">2020 - Present</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground mb-2">TechCorp, San Francisco</div>
-                          <p className="text-sm">
-                            Led the development of the company's main product, improving performance by 40%. 
-                            Mentored junior developers and implemented best practices.
-                          </p>
-                        </div>
-                        
-                        <Separator />
-                        
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">Frontend Developer</h3>
-                            <span className="text-sm text-muted-foreground">2018 - 2020</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground mb-2">WebSolutions, New York</div>
-                          <p className="text-sm">
-                            Developed and maintained multiple client projects using React and TypeScript.
-                            Collaborated with designers to implement responsive UIs.
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
-                  <TabsContent value="education" className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Education</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">Master of Computer Science</h3>
-                            <span className="text-sm text-muted-foreground">2016 - 2018</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">Stanford University</div>
-                        </div>
-                        
-                        <Separator />
-                        
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">Bachelor of Computer Science</h3>
-                            <span className="text-sm text-muted-foreground">2012 - 2016</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">University of California, Berkeley</div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
                   <TabsContent value="skills" className="space-y-4">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Technical Skills</CardTitle>
+                        <CardTitle className="text-lg">My Skills</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <h3 className="font-medium mb-2">Frontend</h3>
-                            <ul className="space-y-1 text-sm">
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">95%</Badge>
-                                React
-                              </li>
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">90%</Badge>
-                                TypeScript
-                              </li>
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">85%</Badge>
-                                HTML/CSS
-                              </li>
-                            </ul>
+                        {isEditing ? (
+                          <div className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                              {skills.map((skill) => (
+                                <Badge key={skill} variant="secondary" className="pl-2 pr-1 py-1">
+                                  {skill}
+                                  <button 
+                                    className="ml-1 text-xs hover:text-destructive"
+                                    onClick={() => handleRemoveSkill(skill)}
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Input 
+                                placeholder="Add a skill" 
+                                value={newSkill}
+                                onChange={(e) => setNewSkill(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                              />
+                              <Button variant="outline" onClick={handleAddSkill}>Add</Button>
+                            </div>
                           </div>
-                          
-                          <div>
-                            <h3 className="font-medium mb-2">Backend</h3>
-                            <ul className="space-y-1 text-sm">
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">80%</Badge>
-                                Node.js
-                              </li>
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">75%</Badge>
-                                GraphQL
-                              </li>
-                              <li className="flex items-center">
-                                <Badge variant="outline" className="mr-2 px-1.5 py-0">70%</Badge>
-                                PostgreSQL
-                              </li>
-                            </ul>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {skills && skills.length > 0 ? (
+                              skills.map((skill) => (
+                                <Badge key={skill} variant="secondary">{skill}</Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground">No skills added yet. Click Edit Profile to add your skills.</span>
+                            )}
                           </div>
-                        </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="applications" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">My Applications</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {applications && applications.length > 0 ? (
+                          <div className="space-y-4">
+                            {applications.map((application) => (
+                              <div key={application.id} className="border rounded-md p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <h3 className="font-medium">
+                                    <Link to={`/jobs/${application.job_id}`} className="hover:underline">
+                                      {application.jobs?.title || 'Job Title'}
+                                    </Link>
+                                  </h3>
+                                  <Badge>{application.status}</Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground mb-2">
+                                  {application.jobs?.companies?.name || 'Company'} • Applied on {new Date(application.created_at).toLocaleDateString()}
+                                </div>
+                                <div className="flex mt-2">
+                                  <Button size="sm" variant="outline" asChild className="mr-2">
+                                    <Link to={`/jobs/${application.job_id}`}>View Job</Link>
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <p className="text-muted-foreground mb-4">You haven't applied to any jobs yet</p>
+                            <Button asChild>
+                              <Link to="/jobs">Browse Jobs</Link>
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -321,70 +599,81 @@ const UserProfile = () => {
                 <>
                   <TabsContent value="jobs" className="space-y-4">
                     <Card>
-                      <CardHeader>
+                      <CardHeader className="flex justify-between items-center">
                         <CardTitle className="text-lg">Active Job Postings</CardTitle>
+                        <Button asChild>
+                          <Link to="/jobs/create">Post a New Job</Link>
+                        </Button>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="border rounded-md p-4">
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">Senior React Developer</h3>
-                            <Badge>3 applicants</Badge>
+                        {postedJobs && postedJobs.length > 0 ? (
+                          postedJobs.map((job) => (
+                            <div key={job.id} className="border rounded-md p-4">
+                              <div className="flex justify-between mb-1">
+                                <h3 className="font-medium">{job.title}</h3>
+                                <Badge>{job.status}</Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground mb-2">
+                                {job.location || 'Remote'} • {job.work_type || 'Full-time'} • {job.salary_range || 'Salary not specified'}
+                              </div>
+                              <div className="flex mt-2">
+                                <Button size="sm" variant="outline" asChild className="mr-2">
+                                  <Link to={`/jobs/${job.id}/applications`}>View Applicants</Link>
+                                </Button>
+                                <Button size="sm" variant="outline" asChild>
+                                  <Link to={`/jobs/${job.id}/edit`}>Edit</Link>
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8">
+                            <p className="text-muted-foreground mb-4">You haven't posted any jobs yet</p>
+                            <Button asChild>
+                              <Link to="/jobs/create">Post Your First Job</Link>
+                            </Button>
                           </div>
-                          <div className="text-sm text-muted-foreground mb-2">Remote • Full-time • $120k-150k</div>
-                          <div className="flex mt-2">
-                            <Button size="sm" variant="outline" className="mr-2">View Applicants</Button>
-                            <Button size="sm" variant="outline">Edit</Button>
-                          </div>
-                        </div>
-                        
-                        <div className="border rounded-md p-4">
-                          <div className="flex justify-between mb-1">
-                            <h3 className="font-medium">UX Designer</h3>
-                            <Badge>1 applicant</Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground mb-2">San Francisco • Full-time • $100k-130k</div>
-                          <div className="flex mt-2">
-                            <Button size="sm" variant="outline" className="mr-2">View Applicants</Button>
-                            <Button size="sm" variant="outline">Edit</Button>
-                          </div>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
                   
-                  <TabsContent value="team" className="space-y-4">
+                  <TabsContent value="applications" className="space-y-4">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Team Members</CardTitle>
+                        <CardTitle className="text-lg">Recent Applications</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <Avatar className="h-10 w-10 mr-3">
-                                <AvatarFallback>JD</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h3 className="font-medium">Jane Doe</h3>
-                                <div className="text-sm text-muted-foreground">HR Manager</div>
+                        {applications && applications.length > 0 ? (
+                          <div className="space-y-4">
+                            {applications.map((application) => (
+                              <div key={application.id} className="border rounded-md p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <h3 className="font-medium">
+                                    {application.candidates?.profiles?.first_name} {application.candidates?.profiles?.last_name}
+                                  </h3>
+                                  <Badge>{application.status}</Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground mb-2">
+                                  Applied for: <Link to={`/jobs/${application.job_id}`} className="font-medium hover:underline">{application.jobs?.title}</Link>
+                                  <span> • {new Date(application.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex mt-2">
+                                  <Button size="sm" variant="outline" className="mr-2" asChild>
+                                    <Link to={`/candidates/${application.candidate_id}`}>View Profile</Link>
+                                  </Button>
+                                  <Button size="sm" variant="default" onClick={() => handleVideoCall(application)}>
+                                    Schedule Interview
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                            <Button size="sm" variant="outline">View</Button>
+                            ))}
                           </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <Avatar className="h-10 w-10 mr-3">
-                                <AvatarFallback>MS</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h3 className="font-medium">Michael Smith</h3>
-                                <div className="text-sm text-muted-foreground">Tech Lead</div>
-                              </div>
-                            </div>
-                            <Button size="sm" variant="outline">View</Button>
+                        ) : (
+                          <div className="text-center py-8">
+                            <p className="text-muted-foreground">No applications received yet</p>
                           </div>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>

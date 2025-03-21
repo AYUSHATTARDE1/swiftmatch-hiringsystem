@@ -66,7 +66,7 @@ export const getCandidates = async (filters?: any) => {
     .from('candidates')
     .select(`
       *,
-      profiles(id, first_name, last_name, location)
+      profiles(id, first_name, last_name, location, profile_image)
     `);
     
   // Apply filters if provided
@@ -89,6 +89,14 @@ export const getCandidates = async (filters?: any) => {
     
     if (filters.availability) {
       query = query.ilike('availability', `%${filters.availability}%`);
+    }
+    
+    if (filters.searchTerm) {
+      query = query.or(`
+        profiles.first_name.ilike.%${filters.searchTerm}%,
+        profiles.last_name.ilike.%${filters.searchTerm}%,
+        title.ilike.%${filters.searchTerm}%
+      `);
     }
   }
   
@@ -144,8 +152,12 @@ export const getJobs = async (filters?: any) => {
       query = query.ilike('location', `%${filters.location}%`);
     }
     
-    if (filters.title) {
-      query = query.ilike('title', `%${filters.title}%`);
+    if (filters.searchTerm) {
+      query = query.or(`
+        title.ilike.%${filters.searchTerm}%,
+        description.ilike.%${filters.searchTerm}%,
+        location.ilike.%${filters.searchTerm}%
+      `);
     }
     
     if (filters.company_id) {
@@ -179,6 +191,32 @@ export const getJob = async (jobId: string) => {
   return data;
 };
 
+export const createJob = async (jobData: any) => {
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(jobData)
+    .select();
+    
+  if (error) {
+    throw error;
+  }
+  
+  return data[0];
+};
+
+export const updateJob = async (jobId: string, jobData: any) => {
+  const { error } = await supabase
+    .from('jobs')
+    .update(jobData)
+    .eq('id', jobId);
+    
+  if (error) {
+    throw error;
+  }
+  
+  return true;
+};
+
 // Application services
 export const getApplications = async (filters: any) => {
   let query = supabase
@@ -199,6 +237,11 @@ export const getApplications = async (filters: any) => {
   
   if (filters.status) {
     query = query.eq('status', filters.status);
+  }
+  
+  // If company_id is provided, filter by jobs posted by that company
+  if (filters.company_id) {
+    query = query.eq('jobs.company_id', filters.company_id);
   }
   
   const { data, error } = await query;
@@ -284,6 +327,16 @@ export const getInterviews = async (filters: any) => {
   
   if (filters.to_date) {
     query = query.lte('scheduled_at', filters.to_date);
+  }
+  
+  // Filter for a company's interviews
+  if (filters.company_id) {
+    query = query.eq('applications.jobs.company_id', filters.company_id);
+  }
+  
+  // Filter for a candidate's interviews
+  if (filters.candidate_id) {
+    query = query.eq('applications.candidate_id', filters.candidate_id);
   }
   
   const { data, error } = await query;

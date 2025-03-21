@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js'; 
 
 type UserType = 'company' | 'candidate' | null;
 
@@ -20,6 +21,7 @@ interface UserContextType {
     profilePicture?: string;
   } | null;
   loading: boolean;
+  session: Session | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userType, setUserType] = useState<UserType>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<UserContextType['user']>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,18 +41,86 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       
       try {
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, sessionData) => {
+            console.log('Auth state changed:', event, sessionData);
+            setSession(sessionData);
+            
+            if (sessionData) {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', sessionData.user.id)
+                .single();
+                
+              if (profileError) {
+                console.error('Error fetching profile:', profileError);
+                setUser(null);
+                setUserType(null);
+                setIsAuthenticated(false);
+                return;
+              }
+              
+              // Set user type based on profile
+              const type = profileData.user_type as UserType;
+              setUserType(type);
+              
+              // Get user details based on type
+              let userData;
+              if (type === 'company') {
+                const { data, error } = await supabase
+                  .from('companies')
+                  .select('*')
+                  .eq('id', sessionData.user.id)
+                  .single();
+                  
+                if (error) {
+                  console.error('Error fetching company:', error);
+                  return;
+                }
+                
+                userData = { 
+                  id: sessionData.user.id, 
+                  name: data.name || 'Company',
+                  email: sessionData.user.email || '',
+                  profilePicture: data.logo 
+                };
+              } else {
+                userData = { 
+                  id: sessionData.user.id, 
+                  name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
+                  email: sessionData.user.email || '',
+                  profilePicture: profileData.profile_image 
+                };
+              }
+              
+              setUser(userData);
+              setIsAuthenticated(true);
+            } else {
+              setUser(null);
+              setUserType(null);
+              setIsAuthenticated(false);
+            }
+          }
+        );
         
-        if (session) {
+        // THEN check for existing session
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        console.log('Existing session:', existingSession);
+        
+        if (existingSession) {
+          setSession(existingSession);
+          
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', existingSession.user.id)
             .single();
             
           if (profileError) {
-            throw profileError;
+            console.error('Error fetching profile:', profileError);
+            return;
           }
           
           // Set user type based on profile
@@ -62,28 +133,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const { data, error } = await supabase
               .from('companies')
               .select('*')
-              .eq('id', session.user.id)
+              .eq('id', existingSession.user.id)
               .single();
               
-            if (error) throw error;
+            if (error) {
+              console.error('Error fetching company:', error);
+              return;
+            }
+            
             userData = { 
-              id: session.user.id, 
+              id: existingSession.user.id, 
               name: data.name || 'Company',
-              email: session.user.email || '',
+              email: existingSession.user.email || '',
               profilePicture: data.logo 
             };
           } else {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-              
-            if (profileError) throw profileError;
             userData = { 
-              id: session.user.id, 
+              id: existingSession.user.id, 
               name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
-              email: session.user.email || '',
+              email: existingSession.user.email || '',
               profilePicture: profileData.profile_image 
             };
           }
@@ -91,6 +159,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(userData);
           setIsAuthenticated(true);
         }
+        
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
         console.error('Error checking authentication:', error);
         // Reset auth state if there's an error
@@ -103,66 +175,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     initializeAuth();
-    
-    // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-          
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          return;
-        }
-        
-        // Set user type based on profile
-        const type = profileData.user_type as UserType;
-        setUserType(type);
-        
-        // Get user details based on type
-        let userData;
-        if (type === 'company') {
-          const { data, error } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (error) {
-            console.error('Error fetching company:', error);
-            return;
-          }
-          
-          userData = { 
-            id: session.user.id, 
-            name: data.name || 'Company',
-            email: session.user.email || '',
-            profilePicture: data.logo 
-          };
-        } else {
-          userData = { 
-            id: session.user.id, 
-            name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'User',
-            email: session.user.email || '',
-            profilePicture: profileData.profile_image 
-          };
-        }
-        
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setUserType(null);
-        setIsAuthenticated(false);
-      }
-    });
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, []);
   
   const login = async (email: string, password: string, type: UserType): Promise<void> => {
@@ -175,6 +187,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (error) throw error;
+      
+      if (!data.user || !data.session) {
+        throw new Error('Login failed. No user or session returned.');
+      }
       
       // Profile should be created by the trigger we set up in SQL
       const { data: profileData, error: profileError } = await supabase
@@ -194,6 +210,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUserType(type);
+      setSession(data.session);
       
       // Get user details based on type
       let userData;
@@ -293,6 +310,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: data.user.email || '',
       };
       
+      setSession(data.session);
       setUser(userData);
       setUserType(type);
       setIsAuthenticated(true);
@@ -333,6 +351,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setUserType(null);
       setIsAuthenticated(false);
+      setSession(null);
       
       toast({
         title: "Logged out",
@@ -363,7 +382,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signup, 
       logout,
       user,
-      loading
+      loading,
+      session
     }}>
       {children}
     </UserContext.Provider>
